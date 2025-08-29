@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wi-Fi History</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h2>📅 Wi-Fi Signal History</h2>
+  <a href="/index.html">กลับไปดูแบบ Real-time</a>
+  <form id="historyForm">
+    <label>เริ่ม:</label>
+    <input type="datetime-local" id="start" required>
+    <label>สิ้นสุด:</label>
+    <input type="datetime-local" id="end" required>
+    <button type="submit">แสดงกราฟ</button>
+  </form>
+
+  <canvas id="signalChart" height="300"></canvas>
+  <canvas id="qualityChart" height="300"></canvas>
+
+  <script>
+    const signalCtx = document.getElementById('signalChart').getContext('2d');
+    const qualityCtx = document.getElementById('qualityChart').getContext('2d');
+    let signalChart, qualityChart;
+
+    document.getElementById('historyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
+      const res = await fetch(`/api/history?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+      const data = await res.json();
+
+      const labels = data.map(d => d.timestamp);
+      const ssids = [...new Set(data.map(d => d.ssid))];
+
+      const genDataset = (field) =>
+        ssids.map(ssid => ({
+          label: ssid,
+          data: data.filter(d => d.ssid === ssid).map(d => d[field]),
+          borderColor: `hsl(${Math.random() * 360}, 100%, 50%)`,
+          fill: false
+        }));
+
+      if (signalChart) signalChart.destroy();
+      if (qualityChart) qualityChart.destroy();
+
+      signalChart = new Chart(signalCtx, {
+        type: 'line',
+        data: { labels, datasets: genDataset('signal_level') },
+        options: {
+          scales: {
+            y: { suggestedMin: -100, suggestedMax: 0, title: { display: true, text: 'Signal (dBm)' } }
+          }
+        }
+      });
+
+      qualityChart = new Chart(qualityCtx, {
+        type: 'line',
+        data: { labels, datasets: genDataset('quality') },
+        options: {
+          scales: {
+            y: { suggestedMin: 0, suggestedMax: 100, title: { display: true, text: 'Quality (%)' } }
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>

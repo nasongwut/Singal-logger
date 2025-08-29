@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>📶 Wi-Fi Realtime Monitoring</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Adapter for date/time axis -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        margin: 20px;
+        background: #f5f7fa;
+        color: #333;
+      }
+
+      h2 {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      a {
+        color: #007bff;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .chart-container {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        max-width: 1000px;
+        margin: auto;
+      }
+
+      canvas {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+      }
+
+      @media (min-width: 768px) {
+        .chart-container {
+          flex-direction: row;
+          justify-content: space-between;
+        }
+
+        canvas {
+          width: 48% !important;
+          height: auto !important;
+        }
+      }
+
+      #ssidList {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 16px;
+      }
+
+      #ssidList a {
+        margin: 0 8px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h2>📶 Wi-Fi Realtime Monitoring (ย้อนหลัง 1 ชั่วโมง)</h2>
+    <a href="/history.html" style="display: block; text-align: center; margin-bottom: 20px;"
+      >ดูย้อนหลัง</a
+    >
+
+    <div class="chart-container">
+      <canvas id="signalChart"></canvas>
+      <canvas id="qualityChart"></canvas>
+    </div>
+
+    <!-- ลิงก์ SSID -->
+    <div id="ssidList"><strong>🔍 กำลังโหลด SSID...</strong></div>
+
+    <script>
+      const signalCtx = document.getElementById("signalChart").getContext("2d");
+      const qualityCtx = document.getElementById("qualityChart").getContext("2d");
+      const ssidList = document.getElementById("ssidList");
+
+      let signalChart, qualityChart;
+
+      async function fetchAndRender() {
+        try {
+          const res = await fetch("/api/realtime");
+          const data = await res.json();
+
+          const ssids = [...new Set(data.map((d) => d.ssid))];
+          // สร้างลิงก์ SSID
+          ssidList.innerHTML =
+            `<strong>🔍 ดูรายละเอียด SSID:</strong><br>` +
+            ssids
+              .map((ssid) => {
+                const safeName = ssid || "[ไม่ระบุชื่อ]";
+                return `<a href="/ssid.html?name=${encodeURIComponent(
+                  ssid
+                )}" target="_blank">${safeName}</a>`;
+              })
+              .join("");
+
+          const genDataset = (field) =>
+            ssids.map((ssid) => ({
+              label: ssid || "[ไม่ระบุชื่อ]",
+              data: data
+                .filter((d) => d.ssid === ssid)
+                .map((d) => ({
+                  x: new Date(d.timestamp),
+                  y: d[field],
+                })),
+              borderColor: `hsl(${Math.random() * 360}, 70%, 50%)`,
+              tension: 0.3,
+              fill: false,
+            }));
+
+          if (signalChart) signalChart.destroy();
+          if (qualityChart) qualityChart.destroy();
+
+          const commonOptions = {
+            responsive: true,
+            animation: false,
+            interaction: { mode: "nearest", intersect: false },
+            plugins: {
+              title: { display: true },
+              legend: { position: "bottom" },
+            },
+            scales: {
+              x: {
+                type: "time",
+                time: { unit: "minute", tooltipFormat: "HH:mm:ss" },
+                title: { display: true, text: "เวลา" },
+              },
+              y: {
+                beginAtZero: false,
+              },
+            },
+          };
+
+          signalChart = new Chart(signalCtx, {
+            type: "line",
+            data: { datasets: genDataset("signal_level") },
+            options: {
+              ...commonOptions,
+              plugins: {
+                ...commonOptions.plugins,
+                title: { text: "ระดับสัญญาณ (dBm)" },
+              },
+              scales: {
+                ...commonOptions.scales,
+                y: {
+                  ...commonOptions.scales.y,
+                  suggestedMin: -100,
+                  suggestedMax: 0,
+                  title: { display: true, text: "Signal (dBm)" },
+                },
+              },
+            },
+          });
+
+          qualityChart = new Chart(qualityCtx, {
+            type: "line",
+            data: { datasets: genDataset("quality") },
+            options: {
+              ...commonOptions,
+              plugins: {
+                ...commonOptions.plugins,
+                title: { text: "คุณภาพสัญญาณ (%)" },
+              },
+              scales: {
+                ...commonOptions.scales,
+                y: {
+                  ...commonOptions.scales.y,
+                  suggestedMin: 0,
+                  suggestedMax: 100,
+                  title: { display: true, text: "Quality (%)" },
+                },
+              },
+            },
+          });
+        } catch (error) {
+          ssidList.innerHTML = `<strong style="color:red;">เกิดข้อผิดพลาดในการโหลดข้อมูล</strong>`;
+          console.error(error);
+        }
+      }
+
+      setInterval(fetchAndRender, 5000);
+      fetchAndRender();
+    </script>
+  </body>
+</html>

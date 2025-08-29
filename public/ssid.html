@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>รายละเอียด SSID</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+    }
+    canvas {
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-bottom: 10px;
+    }
+    a {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #007bff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h2 id="title">รายละเอียด SSID</h2>
+  <a href="/index.html">⬅ กลับไปหน้าหลัก</a>
+
+  <canvas id="signalChart" height="300"></canvas>
+  <canvas id="qualityChart" height="300"></canvas>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const ssid = urlParams.get('name');
+
+    if (!ssid) {
+      alert('ไม่พบ SSID ที่ระบุใน URL');
+    }
+
+    document.getElementById('title').textContent = `📡 รายละเอียด: ${ssid}`;
+
+    const signalCtx = document.getElementById('signalChart').getContext('2d');
+    const qualityCtx = document.getElementById('qualityChart').getContext('2d');
+
+    let signalChart, qualityChart;
+
+    async function loadData() {
+      const res = await fetch('/api/realtime');
+      const allData = await res.json();
+      const data = allData.filter(d => d.ssid === ssid);
+
+      if (data.length === 0) return;
+
+      const signalData = data.map(d => ({
+        x: new Date(d.timestamp),
+        y: d.signal_level
+      }));
+
+      const qualityData = data.map(d => ({
+        x: new Date(d.timestamp),
+        y: d.quality
+      }));
+
+      if (signalChart) signalChart.destroy();
+      if (qualityChart) qualityChart.destroy();
+
+      const commonOptions = {
+        responsive: true,
+        animation: false,
+        interaction: { mode: 'nearest', intersect: false },
+        scales: {
+          x: {
+            type: 'time',
+            time: { unit: 'minute', tooltipFormat: 'HH:mm:ss' },
+            title: { display: true, text: 'เวลา' }
+          },
+          y: {
+            beginAtZero: false
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      };
+
+      signalChart = new Chart(signalCtx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'Signal Level (dBm)',
+            data: signalData,
+            borderColor: 'blue',
+            tension: 0.3
+          }]
+        },
+        options: {
+          ...commonOptions,
+          scales: {
+            ...commonOptions.scales,
+            y: {
+              ...commonOptions.scales.y,
+              suggestedMin: -100,
+              suggestedMax: 0,
+              title: { display: true, text: 'Signal (dBm)' }
+            }
+          }
+        }
+      });
+
+      qualityChart = new Chart(qualityCtx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'Quality (%)',
+            data: qualityData,
+            borderColor: 'green',
+            tension: 0.3
+          }]
+        },
+        options: {
+          ...commonOptions,
+          scales: {
+            ...commonOptions.scales,
+            y: {
+              ...commonOptions.scales.y,
+              suggestedMin: 0,
+              suggestedMax: 100,
+              title: { display: true, text: 'Quality (%)' }
+            }
+          }
+        }
+      });
+    }
+
+    loadData();
+    setInterval(loadData, 5000); // refresh every 5s
+  </script>
+</body>
+</html>
