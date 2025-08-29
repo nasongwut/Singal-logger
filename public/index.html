@@ -7,9 +7,9 @@
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Adapter for date/time axis -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <!-- Zoom Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
     <style>
       body {
@@ -69,21 +69,36 @@
       #ssidList a {
         margin: 0 8px;
       }
+
+      #resetZoomBtn {
+        display: block;
+        margin: 20px auto;
+        padding: 8px 16px;
+        font-size: 14px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      #resetZoomBtn:hover {
+        background-color: #0056b3;
+      }
     </style>
   </head>
 
   <body>
     <h2>📶 Wi-Fi Realtime Monitoring (ย้อนหลัง 1 ชั่วโมง)</h2>
-    <a href="/history.html" style="display: block; text-align: center; margin-bottom: 20px;"
-      >ดูย้อนหลัง</a
-    >
+    <a href="/history.html" style="display: block; text-align: center; margin-bottom: 20px;">ดูย้อนหลัง</a>
 
     <div class="chart-container">
       <canvas id="signalChart"></canvas>
       <canvas id="qualityChart"></canvas>
     </div>
 
-    <!-- ลิงก์ SSID -->
+    <button id="resetZoomBtn" onclick="resetZoom()">🔄 รีเซ็ตการซูม</button>
+
     <div id="ssidList"><strong>🔍 กำลังโหลด SSID...</strong></div>
 
     <script>
@@ -92,6 +107,12 @@
       const ssidList = document.getElementById("ssidList");
 
       let signalChart, qualityChart;
+      const chartSyncGroup = "wifiSync";
+
+      function resetZoom() {
+        if (signalChart) signalChart.resetZoom();
+        if (qualityChart) qualityChart.resetZoom();
+      }
 
       async function fetchAndRender() {
         try {
@@ -99,15 +120,12 @@
           const data = await res.json();
 
           const ssids = [...new Set(data.map((d) => d.ssid))];
-          // สร้างลิงก์ SSID
           ssidList.innerHTML =
             `<strong>🔍 ดูรายละเอียด SSID:</strong><br>` +
             ssids
               .map((ssid) => {
                 const safeName = ssid || "[ไม่ระบุชื่อ]";
-                return `<a href="/ssid.html?name=${encodeURIComponent(
-                  ssid
-                )}" target="_blank">${safeName}</a>`;
+                return `<a href="/ssid.html?name=${encodeURIComponent(ssid)}" target="_blank">${safeName}</a>`;
               })
               .join("");
 
@@ -135,11 +153,49 @@
             plugins: {
               title: { display: true },
               legend: { position: "bottom" },
+              zoom: {
+                pan: {
+                  enabled: true,
+                  mode: "x",
+                  sync: {
+                    enabled: true,
+                    group: chartSyncGroup,
+                  },
+                },
+                zoom: {
+                  wheel: { enabled: true },
+                  pinch: { enabled: true },
+                  mode: "x",
+                  sync: {
+                    enabled: true,
+                    group: chartSyncGroup,
+                  },
+                },
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    const time = new Date(context.parsed.x).toLocaleTimeString("th-TH", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    });
+                    return `${context.dataset.label}: ${context.parsed.y} (เวลา ${time})`;
+                  },
+                },
+              },
             },
             scales: {
               x: {
                 type: "time",
-                time: { unit: "minute", tooltipFormat: "HH:mm:ss" },
+                time: {
+                  unit: "minute",
+                  tooltipFormat: "HH:mm:ss",
+                  displayFormats: {
+                    minute: "HH:mm",
+                    hour: "HH:mm",
+                  },
+                },
                 title: { display: true, text: "เวลา" },
               },
               y: {
