@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Wi-Fi Signal Monitor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+</head>
+<body style="font-family:sans-serif; margin:30px;">
+<h2>Wi-Fi Signal Monitor</h2>
+
+<p>
+  <button onclick="showTab('realtime')">Realtime</button>
+  <button onclick="showTab('history')">History</button>
+</p>
+
+<div id="realtimeTab">
+  <h3>Realtime (last 1 hour)</h3>
+  <canvas id="chartRealtime" width="900" height="400"></canvas>
+</div>
+
+<div id="historyTab" style="display:none;">
+  <h3>History</h3>
+  From: <input type="datetime-local" id="from">
+  To: <input type="datetime-local" id="to">
+  <button onclick="fetchHistory()">Show</button>
+  <canvas id="chartHistory" width="900" height="400"></canvas>
+</div>
+
+<p>
+  🔍 Zoom: scroll mouse | Pan: drag  
+  <button onclick="resetZoom()">Reset Zoom</button>
+  <button onclick="exportExcel()">Download Excel</button>
+</p>
+
+<script>
+// JS code ทั้งหมดเหมือนที่ผมส่งให้ก่อนหน้า
+// ไม่ต้องเปลี่ยนอะไร
+</script>
+</body>
+</html>
